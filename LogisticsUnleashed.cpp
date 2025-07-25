@@ -1,180 +1,436 @@
-#include <iostream>
-#include <vector>
-#include <climits>
-#include <unordered_set>
-#include <unordered_map>
-#include <queue>
-#include <utility>
-#include <algorithm>
-
+#include <bits/stdc++.h>
 using namespace std;
+using pii = pair<long long , long long >;
 
+struct Edge {
+    int from ,to, cost;
+    bool operator<(const Edge& other) const {
+        return cost < other.cost;
+    }
+};
 const int INF = 1e9;
 
-int N, T, M, K, F;
-vector<int> hubs, houses, fuel_stations;
-vector<vector<int>> dist, next_node;
-unordered_map<int, unordered_map<int, int>> edge_map;
-unordered_set<int> fuel_station_set;
-
-// Floyd-Warshall Algorithm
-void floyd_warshall(const vector<vector<pair<int, int>>>& graph) {
-    dist.assign(T, vector<int>(T, INF));
-    next_node.assign(T, vector<int>(T, -1));
-    
-    for (int u = 0; u < T; ++u) {
-        dist[u][u] = 0;
-        next_node[u][u] = u;
-    }
-    
-    for (int u = 0; u < T; ++u) {
-        for (int i = 0; i < graph[u].size(); ++i) {
-            int v = graph[u][i].first;
-            int cost = graph[u][i].second;
-            dist[u][v] = cost;
-            next_node[u][v] = v;
+vector<int>vec,vec2,path;
+struct DisjointSetUnion {
+    vector<int > parent, rank;
+    DisjointSetUnion(int  n) {
+        parent.resize(n);
+        rank.resize(n, 0);
+        for(int i = 0; i <n; i++)
+        {
+            parent[i] = i;
         }
     }
-    for (int k = 0; k < T; ++k) {
-        for (int i = 0; i < T; ++i) {
-            for (int j = 0; j < T; ++j) {
-                if (dist[i][k] < INF && dist[k][j] < INF &&
-                    dist[i][j] > dist[i][k] + dist[k][j]) {
-                    dist[i][j] = dist[i][k] + dist[k][j];
-                    next_node[i][j] = next_node[i][k];
+    int  find(int  u) {
+        if (parent[u] != u)
+            parent[u] = find(parent[u]);
+        return parent[u];
+    }
+    bool unite(int  u, int  v) {
+        int  pu = find(u), pv = find(v);
+        if (pu == pv) return false;
+        if (rank[pu] < rank[pv])
+            parent[pu] = pv;
+        else {
+            parent[pv] = pu;
+            if (rank[pu] == rank[pv])
+                rank[pu]++;
+        }
+        return true;
+    }
+};
+
+void dijkstra(vector<int>&fuelStations, vector<vector<pair<int, int>>> &mstGraph, vector<pair<int, int>> &dist) {
+    priority_queue<pii, vector<pii>, greater<pii>> pq;
+
+    for(int i = 0; i <fuelStations.size(); i++)
+    {
+        pq.push({0,fuelStations[i]});
+        dist[fuelStations[i]].second = fuelStations[i];
+        dist[fuelStations[i]].first = 0;
+    }
+    
+    while (!pq.empty()) {
+        int u = pq.top().second;
+        int d = pq.top().first;
+        pq.pop();
+        
+        if (d > dist[u].first) continue;
+        
+        for (auto &element : mstGraph[u]) {
+
+            int v = element.first, weight = element.second;
+            if (dist[u].first + weight < dist[v].first) {
+                dist[v].first = dist[u].first + weight;
+                dist[v].second = dist[u].second;
+                pq.push({dist[v].first, v});
+            }
+        }
+    }
+}
+
+vector<vector<int>> distiii;
+void floydWarshall(int V, vector<vector<int>>& distiii) {
+    for (int k = 0; k < V; ++k) {
+        for (int i = 0; i < V; ++i) {
+            for (int j = 0; j < V; ++j) {
+                if (distiii[i][k] < INF && distiii[k][j] < INF)
+                    distiii[i][j] = min(distiii[i][j], distiii[i][k] + distiii[k][j]);
+            }
+        }
+    }
+}
+
+void dfsCheck(int vertex,vector<bool>&visited, vector<bool>& finall,vector<vector<pair<int,int>>> &minimumSpanningTree
+    ,int fuelstation,vector<pair<int,int>>&mindist, set<int> &houseHub, vector<int>&subtree){
+
+    visited[vertex] = true;
+    for( auto& pr : minimumSpanningTree[vertex])
+    {
+        int child=pr.first;
+        if(visited[child])continue;
+        int fuelstation_child=mindist[child].second;
+        if(fuelstation_child!=fuelstation)continue;
+        dfsCheck(child,visited, finall,minimumSpanningTree,fuelstation,mindist, houseHub, subtree);
+        subtree[vertex]+= subtree[child];
+    }
+    if (subtree[vertex] == 0)
+    {
+        finall[vertex] =true;
+    }
+}
+
+bool dfs(int vertex,vector<bool>&visited,vector<vector<pair<int , int >>> &minimumSpanningTree,
+    vector<int>&parent,int &ans,int fuelstation,vector<pair<int,int>>&mindist,int &currentfuel,
+    map<int,int>&map_ifhub,vector<int>&visited_hubs,map<int,int>&map_ifhouse,vector<int>&visited_houses,map<int,int>&map_house_hub){
+
+    visited[vertex]=1;
+    vec.push_back(vertex);
+    if(map_ifhub[vertex]==1){
+        visited_hubs[vertex]=1;
+    }
+    if(map_ifhouse[vertex]==1 and visited_hubs[map_house_hub[vertex]]==1){
+        visited_houses[vertex]=1;
+    }
+    bool done=1;
+    for(auto pr:minimumSpanningTree[vertex]){
+        int child=pr.first;
+        int wt=pr.second;
+        if(visited[child])continue;
+
+        int fuelstation_child=mindist[child].second;
+        if(fuelstation_child!=fuelstation)continue;
+        if(currentfuel-wt<mindist[child].first){
+            //
+            done=0;
+        }
+        else{
+            parent[child] = vertex;
+            ans+=2*wt;
+            currentfuel -= wt;
+            done=((done)&dfs(child,visited, minimumSpanningTree,parent,ans,fuelstation,mindist,(currentfuel),map_ifhub,visited_hubs,map_ifhouse,visited_houses,map_house_hub));
+            vec.push_back(vertex);
+        }
+    }
+    if(done==0){
+        visited[vertex]=0;
+    }
+    return done;
+}
+void dfs3(int vertex,vector<vector<pair<int,int>>> &minimumSpanningTree,vector<int>&visited,vector<int>&parent){
+    visited[vertex]=1;
+    for(auto pr:minimumSpanningTree[vertex]){
+        int child=pr.first;
+        if(visited[child])continue;
+        parent[child]=vertex;
+        dfs3(child,minimumSpanningTree,visited,parent);
+    }
+    return;
+}
+
+void dfs2(int vertex,vector<bool>&visited,vector<vector<pair<int , int >>> &minimumSpanningTree,vector<int>&path,vector<int>&fuelStations,int &sum){
+    visited[vertex]=1;
+    path.push_back(vertex);
+    for(auto pr:minimumSpanningTree[vertex]){
+        if(visited[pr.first]==1)continue;
+        if(pr.first==fuelStations[0]){
+            sum+=pr.second*2;
+            return;
+        }
+
+        dfs2(pr.first,visited,minimumSpanningTree,path,fuelStations,sum);
+        sum+=pr.second;
+    }
+    return;
+}
+
+vector<int > fuelStationsOrder;
+
+bool dfs_fuel(int vertex,vector<bool>&visited_fuelll,vector<vector<pair<int,int>>> &minimumSpanningTree,int &ans, int fuelCapacity , vector<int> &petrrol){
+    fuelStationsOrder.push_back(petrrol[vertex]);
+    visited_fuelll[vertex]=1;   
+    bool done=1;
+    for(auto pr:minimumSpanningTree[vertex]){
+        int child=pr.first;
+        int wt=pr.second;
+        if(visited_fuelll[child])continue;
+        if(wt>fuelCapacity){
+            done=0;
+            continue;
+        }
+        else{
+            ans+=2*wt;
+            done = (done & dfs_fuel(child,visited_fuelll, minimumSpanningTree,ans,fuelCapacity, petrrol));
+            fuelStationsOrder.push_back(petrrol[vertex]);
+        }
+    }
+    if(done==0){
+        visited_fuelll[vertex]=0;
+    }
+    return done;
+}
+
+
+int  main() {  
+
+    int  numDeliveries, numNodes, numRoads, numFuelStations, fuelCapacity;
+    cin >> numDeliveries >> numNodes >> numRoads >> numFuelStations >> fuelCapacity;
+    vector<int > deliveryHubs(numDeliveries);
+    distiii.assign(numNodes, vector<int> (numNodes,INF));
+    for(int i = 0; i <numNodes; i++)
+    {
+        distiii[i][i] = 0;
+    }
+    set<int> s, houseAndHubs;
+
+    for (int  i = 0; i < numDeliveries; ++i){ 
+        cin >> deliveryHubs[i];
+        houseAndHubs.insert(deliveryHubs[i]);
+        s.insert(deliveryHubs[i]);
+    }
+
+    vector<int > deliveryHouses(numDeliveries);
+    for (int  i = 0; i < numDeliveries; ++i){ 
+        cin >> deliveryHouses[i];
+        houseAndHubs.insert(deliveryHouses[i]);
+        s.insert(deliveryHouses[i]);
+    }
+
+    vector<int > fuelStations(numFuelStations);
+    for (int  i = 0; i < numFuelStations; ++i){ 
+        cin >> fuelStations[i];
+        houseAndHubs.insert(fuelStations[i]);
+
+        s.insert(fuelStations[i]);
+    }
+
+    vector<Edge> edges;
+    for (int  i = 0; i < numRoads; ++i) {
+        int  from, to, cost;
+        cin >> from >> to >> cost;
+        distiii[from][to] = cost;
+        distiii[to][from] = cost;
+
+        edges.push_back({from, to, cost});
+    }
+    sort(edges.begin(), edges.end());
+    DisjointSetUnion dsu(numNodes);
+    vector<vector<pair<int , int >>> minimumSpanningTree(numNodes); 
+    for (const auto &edge : edges) {
+        if (dsu.unite(edge.from, edge.to)) {
+            minimumSpanningTree[edge.from].push_back({edge.to, edge.cost});
+            minimumSpanningTree[edge.to].push_back({edge.from, edge.cost});
+        }
+    }
+    vector<pair<int,int>> minDist(numNodes);
+    for(int i = 0; i <numNodes; i++)
+    {
+        minDist[i].first = INT_MAX;
+        minDist[i].second = 0;
+    }
+    vector<Edge> edges2;
+    floydWarshall(numNodes,distiii);
+
+    for (int i = 0; i < numFuelStations; i++)
+    {
+        for(int j = i+1; j < numFuelStations; j++)
+        {
+            if (i!= j && distiii[fuelStations[j]][fuelStations[i]] != INF)
+            {
+                edges2.push_back({i, j, distiii[fuelStations[j]][fuelStations[i]]});
+            }
+        }
+    }
+    
+    sort(edges2.begin(), edges2.end());
+    DisjointSetUnion dsu2(numFuelStations);
+    vector<vector<pair<int , int >>> minimumSpanningTree2(numFuelStations);
+    int sum2 = 0;
+    for (const auto &edge : edges2) {
+        if (dsu2.unite(edge.from, edge.to)) {
+            minimumSpanningTree2[edge.from].push_back({edge.to, edge.cost});
+            minimumSpanningTree2[edge.to].push_back({edge.from, edge.cost});
+        }
+    }
+    vector<bool> visited_fueeel(numFuelStations,false);
+
+    for(int i = 0; i < numFuelStations; i++)
+    {
+        if (visited_fueeel[i])
+        {
+            continue;
+        }
+        dfs_fuel(i,visited_fueeel, minimumSpanningTree2,sum2, fuelCapacity, fuelStations);
+    }
+
+
+    dijkstra(fuelStations,minimumSpanningTree,minDist);
+    map<int,int>map_ifhub;
+    map<int,int>map_ifhouse;
+    map<int,int>map_house_hub;
+
+    for(int i=0;i<deliveryHubs.size();i++){
+        map_ifhub[deliveryHubs[i]]=1;
+    }
+    for(int i=0;i<deliveryHouses.size();i++){
+        map_ifhouse[deliveryHouses[i]]=1;
+    }
+    for(int i=0;i<deliveryHouses.size();i++){
+        map_house_hub[deliveryHouses[i]]=deliveryHubs[i];
+    }
+    vector<int>visited_hubs(numNodes,0);
+    vector<int>visited_houses(numNodes,0);
+    vector<int>parent(numNodes,0);
+    if(numNodes<=8){
+            int start;
+            for (int i = 0; i < numDeliveries; ++i) {
+                if(minDist[deliveryHubs[i]].first>fuelCapacity/2) start=deliveryHubs[i];
+            }
+            vector<bool>visited(numNodes,0);
+            vector<int>path;
+            int sum=0;
+
+            dfs2(start,visited,minimumSpanningTree,path,fuelStations,sum);
+            start=path[1];
+            bool temp=dfs(fuelStations[0],visited, minimumSpanningTree,parent,sum,fuelStations[0],minDist, fuelCapacity,map_ifhub,visited_hubs,map_ifhouse,visited_houses,map_house_hub);
+            visited[start]=0;
+            for(auto e:vec){
+               path.push_back(e);
+            }
+            dfs2(start,visited,minimumSpanningTree,path,fuelStations,sum);
+            cout<<path.size()<<endl;
+            for(auto e:path){
+                cout<<e<<" ";
+            }
+            cout<<endl;
+            return 0;
+        }
+
+    int sum=0;
+    for(int i = 0; i <fuelStations.size(); i++)
+    {
+        parent[fuelStations[i]] = -1; 
+    }
+
+    vector<int>petrol = fuelStationsOrder;
+
+    vector<bool> visiteee(numNodes, false);
+
+    for(int i = 0; i < petrol.size(); i++)
+    {
+        vector<bool> visited(numNodes,false);
+        vector<int>subtree(numNodes,1);
+        vector<bool> visitedDum(numNodes , false);
+
+        if (visiteee[petrol[i]])
+        {
+            if(i+1==petrol.size())break;
+            int start=petrol[i];
+            int end=petrol[i+1];
+            path.push_back(start);
+    
+            vector<int>visited2(numNodes,0);
+            vector<int>parent2(numNodes,0);
+            dfs3(start,minimumSpanningTree,visited2,parent2);
+    
+            vector<int>temp;
+            int current=end;
+            while(current!=start){
+                if(current!=end){
+                    temp.push_back(current);
+                }
+                current=parent2[current];
+            }
+            reverse(temp.begin(),temp.end());
+            for(auto e:temp){
+                path.push_back(e);
+            }
+            continue;
+        }
+
+        visiteee[petrol[i]] = true;
+        for(int j = 0; j < numNodes; j++)
+        {
+            if (houseAndHubs.count(j) == 0 && j != petrol[i])
+            {
+                subtree[j] = 0;
+            }
+        }
+
+        dfsCheck(petrol[i], visitedDum,visited,minimumSpanningTree,petrol[i],minDist,houseAndHubs, subtree);
+
+        while(1){
+            for(int k = 0; k < numNodes; k++)
+            {
+                if (minDist[k].first > fuelCapacity/2)
+                {
+                    visited[k] = true;
                 }
             }
-        }
-    }
-}
 
-vector<int> get_path(int u, int v) {
-    vector<int> path;
-    if (next_node[u][v] == -1) return path;
-    path.push_back(u);
-    while (u != v) {
-        u = next_node[u][v];
-        path.push_back(u);
-    }
-    return path;
-}
-
-int farthest_from_fuel(const vector<int>& points) {
-    int max_dist = -1;
-    int selected = -1;
-    for (int i = 0; i < points.size(); ++i) {
-        int p = points[i];
-        int min_to_station = INF;
-        for (int j = 0; j < fuel_stations.size(); ++j) {
-            int s = fuel_stations[j];
-            if (dist[p][s] < min_to_station) {
-                min_to_station = dist[p][s];
+            int cp=fuelCapacity;
+            bool tep=dfs(petrol[i],visited, minimumSpanningTree,parent,sum,petrol[i],minDist, cp,map_ifhub,visited_hubs,map_ifhouse,visited_houses,map_house_hub);
+            if(visited[petrol[i]]==1){
+                break;
             }
         }
-        if (min_to_station > max_dist) {
-            max_dist = min_to_station;
-            selected = p;
+        for(auto e:vec){
+            path.push_back(e);
         }
-    }
-    return selected;
-}
+        vec.clear();
+        if(i+1==petrol.size())break;
 
-bool append_path_with_fuel(vector<int>& route, int from, int to, int& fuel) {
-    vector<int> path = get_path(from, to);
-    for (int i = 1; i < path.size(); ++i) {
-        int u = path[i - 1];
-        int v = path[i];
-        if (edge_map[u].count(v) == 0) return false;
-        int cost = edge_map[u][v];
-        if (cost > fuel) return false;
-        fuel -= cost;
-        route.push_back(v);
-        if (fuel_station_set.count(v)) fuel = F;
-    }
-    return true;
-}
+        int start=petrol[i];
+        int end=petrol[i+1];
 
-int main() {
-    cin >> N >> T >> M >> K >> F;
-    hubs.resize(N);
-    houses.resize(N);
-    fuel_stations.resize(K);
+        vector<int>visited2(numNodes,0);
+        vector<int>parent2(numNodes,0);
+        dfs3(start,minimumSpanningTree,visited2,parent2);
 
-    for (int i = 0; i < N; ++i) cin >> hubs[i];
-    for (int i = 0; i < N; ++i) cin >> houses[i];
-    for (int i = 0; i < K; ++i) {
-        cin >> fuel_stations[i];
-        fuel_station_set.insert(fuel_stations[i]);
-    }
-
-    vector<vector<pair<int, int>>> graph(T);
-    for (int i = 0; i < M; ++i) {
-        int u, v, c;
-        cin >> u >> v >> c;
-        graph[u].push_back(make_pair(v, c));
-        graph[v].push_back(make_pair(u, c));
-        edge_map[u][v] = c;
-        edge_map[v][u] = c;
-    }
-
-    floyd_warshall(graph);
-
-    int start_hub = farthest_from_fuel(hubs);
-    int end_house = farthest_from_fuel(houses);
-
-    unordered_set<int> visited_hubs, visited_houses;
-    unordered_map<int, int> hub_for_house;
-    for (int i = 0; i < N; ++i) hub_for_house[houses[i]] = hubs[i];
-
-    vector<int> route;
-    int current = start_hub;
-    int fuel = F;
-    route.push_back(current);
-    visited_hubs.insert(current);
-
-    // Visit all hubs
-    while (visited_hubs.size() < hubs.size()) {
-        int next = -1, best_dist = INF;
-        for (int i = 0; i < hubs.size(); ++i) {
-            int h = hubs[i];
-            if (visited_hubs.count(h)) continue;
-            if (dist[current][h] < best_dist) {
-                best_dist = dist[current][h];
-                next = h;
+        vector<int>temp;
+        int current=end;
+        while(current!=start){
+            if(current!=end){
+                temp.push_back(current);
             }
+            current=parent2[current];
         }
-        if (next == -1) break;
-        if (!append_path_with_fuel(route, current, next, fuel)) {
-            cout << "Failed fuel constraint while visiting hubs.\n";
-            return 0;
+        reverse(temp.begin(),temp.end());
+        for(auto e:temp){
+            path.push_back(e);
         }
-        visited_hubs.insert(next);
-        current = next;
+    }
+    cout<<(2*path.size())-1<<endl;
+    for(int i=0;i<path.size();i++){
+        cout<<path[i]<<" ";
+    }
+    path.pop_back();
+
+    reverse(path.begin(),path.end());
+    for(int i=0;i<path.size();i++){
+        cout<<path[i]<<" ";
     }
 
-    for (int i = 0; i < houses.size(); ++i) {
-        int h = houses[i];
-        if (h == end_house) continue;
-        if (!append_path_with_fuel(route, current, h, fuel)) {
-            cout << "Failed fuel constraint while visiting houses.\n";
-            return 0;
-        }
-        visited_houses.insert(h);
-        current = h;
-    }
-
-    // Visit final house
-    if (!append_path_with_fuel(route, current, end_house, fuel)) {
-        cout << "Failed fuel constraint on last house.\n";
-        return 0;
-    }
-    visited_houses.insert(end_house);
-
-    cout << route.size() << "\n";
-    for (int i = 0; i < route.size(); ++i) {
-        cout << route[i] << " ";
-    }
-    cout << "\n";
 
     return 0;
 }
